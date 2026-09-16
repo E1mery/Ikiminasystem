@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int            @id @default(autoincrement())
+  name              String
+  email             String         @unique
+  phoneNumber       String         @unique
+  idNumber          String         @unique
+  passwordHash      String
+  role              String         @default("Member") // "Member" or "Admin"
+  dateRegistered    DateTime       @default(now())
+
+  contributions     Contribution[]
+  loans             Loan[]
+  penaltiesReceived Penalty[]      @relation("UserPenalties")
+  penaltiesIssued   Penalty[]      @relation("AdminPenalties")
+  announcements     Announcement[]
+  groupMember       GroupMember?
+}
+
+model Contribution {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amountPaid  Float
+  paymentType String   @default("Savings") // "Savings" or "Loan Repayment"
+  paymentDate DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Loan {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  principalAmount  Float
+  interestRate     Float    @default(10.0)
+  totalRepayable   Float
+  durationMonths   Int      @default(3)
+  loanReason       String
+  idNumber         String
+  status           String   @default("Pending") // "Pending", "Active", "Paid"
+  acceptanceStatus String   @default("Pending Acceptance") // "Pending Acceptance", "Accepted"
+  dateRequested    DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id         Int      @id @default(autoincrement())
+  adminId    Int
+  message    String
+  datePosted DateTime @default(now())
+
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model Penalty {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  adminId    Int
+  amount     Float
+  reason     String
+  dateIssued DateTime @default(now())
+
+  user       User     @relation("UserPenalties", fields: [userId], references: [id], onDelete: Cascade)
+  admin      User     @relation("AdminPenalties", fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model GroupMember {
+  id          Int     @id @default(autoincrement())
+  userId      Int     @unique
+  payoutTurn  Int
+  hasReceived Boolean @default(false)
+
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

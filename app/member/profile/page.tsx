@@ -1,0 +1,29 @@
+import { getSession } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { ProfileForm } from "@/components/profile-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function MemberProfilePage() {
+  const session = (await getSession())!;
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+  });
+
+  if (!user) return null;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900">
+          Account Settings & Profile
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Manage your personal details and security credentials.
+        </p>
+      </div>
+
+      <ProfileForm user={user} />
+    </div>
+  );
+}
