@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose/jwt/verify";
+import { jwtVerify } from "jose";
 
 const SECRET_KEY = new TextEncoder().encode(
   process.env.JWT_SECRET || "ikimina_super_secure_jwt_secret_key_2026_rwanda_saccomomo"
