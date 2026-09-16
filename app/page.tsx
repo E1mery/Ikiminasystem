@@ -15,18 +15,26 @@ import { formatCurrency } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Fetch real-time public stats for the landing page
-  const [totalMembers, contributionsSum, loansSum] = await Promise.all([
-    prisma.user.count({ where: { role: "Member" } }),
-    prisma.contribution.aggregate({ _sum: { amountPaid: true } }),
-    prisma.loan.aggregate({
-      where: { status: "Active" },
-      _sum: { principalAmount: true },
-    }),
-  ]);
+  // Fetch real-time public stats for the landing page safely
+  let totalMembers = 0;
+  let totalSaved = 0;
+  let activeLoans = 0;
 
-  const totalSaved = contributionsSum._sum.amountPaid || 0;
-  const activeLoans = loansSum._sum.principalAmount || 0;
+  try {
+    const [membersCount, contributionsSum, loansSum] = await Promise.all([
+      prisma.user.count({ where: { role: "Member" } }),
+      prisma.contribution.aggregate({ _sum: { amountPaid: true } }),
+      prisma.loan.aggregate({
+        where: { status: "Active" },
+        _sum: { principalAmount: true },
+      }),
+    ]);
+    totalMembers = membersCount;
+    totalSaved = contributionsSum._sum.amountPaid || 0;
+    activeLoans = loansSum._sum.principalAmount || 0;
+  } catch (error) {
+    console.error("Database connection failed or uninitialized on landing page:", error);
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 text-slate-100">
