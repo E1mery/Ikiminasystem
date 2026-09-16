@@ -63,7 +63,7 @@ export async function loginAction(
   }
 }
 
-export async function registerStep1Action(
+export async function registerAction(
   prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
@@ -77,11 +77,11 @@ export async function registerStep1Action(
     return { success: false, message: "Please fill in all required fields." };
   }
 
-  // 1. Validate email domain
-  if (!email.endsWith(ALLOWED_DOMAIN.toLowerCase())) {
+  // 1. Validate email domain if configured
+  if (ALLOWED_DOMAIN && !email.endsWith(ALLOWED_DOMAIN.toLowerCase())) {
     return {
       success: false,
-      message: `Registration restricted. You must use a valid company email ending in ${ALLOWED_DOMAIN}`,
+      message: `Registration restricted. You must use an email ending in ${ALLOWED_DOMAIN}`,
     };
   }
 
@@ -94,61 +94,43 @@ export async function registerStep1Action(
     };
   }
 
-  // 3. Check for existing phone, email, or National ID
-  const existing = await prisma.user.findFirst({
-    where: {
-      OR: [{ phoneNumber }, { email }, { idNumber }],
-    },
-  });
-
-  if (existing) {
+  if (password.length < 6) {
     return {
       success: false,
-      message: "An account with this Phone, Email, or National ID already exists.",
+      message: "Password must be at least 6 characters long.",
     };
   }
 
-  const simulatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  const hashedPassword = await hashPassword(password);
-
-  return {
-    success: true,
-    message: `Verification code dispatched to ${phoneNumber}. (Simulation Code: ${simulatedOtp})`,
-    data: {
-      name,
-      email,
-      phoneNumber,
-      idNumber,
-      passwordHash: hashedPassword,
-      otp: simulatedOtp,
-    },
-  };
-}
-
-export async function registerStep2Action(
-  prevState: any,
-  formData: FormData
-): Promise<ActionResult> {
-  const enteredOtp = (formData.get("otpCode") as string)?.trim();
-  const expectedOtp = formData.get("expectedOtp") as string;
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const phoneNumber = formData.get("phoneNumber") as string;
-  const idNumber = formData.get("idNumber") as string;
-  const passwordHash = formData.get("passwordHash") as string;
-
-  if (!enteredOtp || enteredOtp !== expectedOtp) {
-    return { success: false, message: "Invalid verification code. Please try again." };
-  }
-
   try {
+    // 3. Check for existing phone, email, or National ID
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [{ phoneNumber }, { email }, { idNumber }],
+      },
+    });
+
+    if (existing) {
+      if (existing.phoneNumber === phoneNumber) {
+        return { success: false, message: "An account with this phone number already exists." };
+      }
+      if (existing.email === email) {
+        return { success: false, message: "An account with this email address already exists." };
+      }
+      if (existing.idNumber === idNumber) {
+        return { success: false, message: "An account with this National ID already exists." };
+      }
+      return { success: false, message: "An account with these credentials already exists." };
+    }
+
+    const hashedPassword = await hashPassword(password);
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
         phoneNumber,
         idNumber,
-        passwordHash,
+        passwordHash: hashedPassword,
         role: "Member",
       },
     });
@@ -171,10 +153,15 @@ export async function registerStep2Action(
 
     redirect("/member?welcome=true");
   } catch (error: any) {
-    if (error.message === "NEXT_REDIRECT") throw error;
-    return { success: false, message: "Database error during final account creation." };
+    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) throw error;
+    console.error("Registration error:", error);
+    return { success: false, message: "Database error during account creation. Please try again." };
   }
 }
+
+// Backward compatibility aliases if needed
+export const registerStep1Action = registerAction;
+export const registerStep2Action = registerAction;
 
 export async function logoutAction() {
   await destroySession();
