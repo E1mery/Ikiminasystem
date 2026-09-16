@@ -150,13 +150,12 @@ export async function registerAction(
       name: user.name,
       role: "Member",
     });
-
-    redirect("/member?welcome=true");
   } catch (error: any) {
-    if (error?.message === "NEXT_REDIRECT" || error?.digest?.startsWith("NEXT_REDIRECT")) throw error;
     console.error("Registration error:", error);
     return { success: false, message: "Database error during account creation. Please try again." };
   }
+
+  redirect("/member?welcome=true");
 }
 
 // Backward compatibility aliases if needed
